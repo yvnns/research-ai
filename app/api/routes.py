@@ -17,6 +17,7 @@ from app.config import settings, IMAGES_DIR
 from app.core.pipeline import run_search
 from app.database import db
 from app.models.schemas import SearchRequest, SearchResponse, SearchStatus
+from app.services.search_providers import default_providers
 from app.services.security import is_safe_url
 
 router = APIRouter()
@@ -25,6 +26,22 @@ router = APIRouter()
 @router.get("/health")
 async def health() -> dict:
     return {"status": "ok", "app": settings.app_name}
+
+@router.get("/api/debug/images")
+async def debug_images(q: str = "gazin tower") -> dict:
+    providers = [p for p in default_providers() if p.name == "bing_images"]
+    out = []
+    for p in providers:
+        rs = await p.search(q, kind="image", limit=10)
+        out.append({
+            "provider": p.name,
+            "count": len(rs),
+            "results": [
+                {"title": r.title, "url": r.url, "snippet": r.snippet, "thumbnail": r.thumbnail}
+                for r in rs
+            ],
+        })
+    return {"query": q, "results": out}
 
 
 @router.post("/api/search")
