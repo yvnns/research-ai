@@ -51,3 +51,7 @@ Ver diretórios `app/`, `static/`, `storage/`, `tests/`.
 - Provedores de busca gratuitos podem bloquear ou limitar requisições.
 - Sem modelo de visão local; relevância de imagens é heurística, com suporte opcional a API multimodal via configuração.
 - Divergências entre fontes são informadas, não resolvidas automaticamente em todos os casos.
+## Windows
+
+Execute un.bat (cria venv, instala dependencias e inicia em http://127.0.0.1:8000).
+
