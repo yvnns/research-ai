@@ -209,15 +209,33 @@ class BingImagesProvider(BaseProvider):
     async def search(self, query: str, kind: str = "image", limit: int = 20) -> List[SearchResult]:
         if kind != "image":
             return []
+        target = (
+            "https://www.bing.com/images/search?q=" + quote_plus(query)
+            + "&form=HDRSC2&mkt=pt-BR&setlang=pt-BR&cc=br"
+        )
+        if not is_safe_url(target):
+            return []
+        html = ""
         try:
             async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
-                resp = await client.get(
-                    "https://www.bing.com/images/search",
-                    params={"q": query, "form": "HDRSC2", "mkt": "pt-BR", "setlang": "pt-BR", "cc": "br"},
-                )
+                resp = await client.get(target)
                 resp.raise_for_status()
                 html = resp.text
         except Exception:
+            html = ""
+        if not html or ("iusc" not in html and '"murl"' not in html):
+            try:
+                async with httpx.AsyncClient(
+                    timeout=settings.request_timeout,
+                    follow_redirects=True,
+                    headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html", "X-Return-Format": "html"},
+                ) as client:
+                    resp = await client.get("https://r.jina.ai/" + target)
+                    resp.raise_for_status()
+                    html = resp.text
+            except Exception:
+                html = ""
+        if not html:
             return []
         from bs4 import BeautifulSoup
         import json
