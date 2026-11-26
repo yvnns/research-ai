@@ -186,6 +186,61 @@ class BingHTMLProvider(BaseProvider):
         return results
 
 
+class BingImagesProvider(BaseProvider):
+    name = "bing_images"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "image", limit: int = 20) -> List[SearchResult]:
+        if kind != "image":
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+                resp = await client.get("https://www.bing.com/images/search", params={"q": query, "form": "HDRSC2"})
+                resp.raise_for_status()
+                html = resp.text
+        except Exception:
+            return []
+        from bs4 import BeautifulSoup
+        import json
+
+        soup = BeautifulSoup(html, "lxml")
+        results: List[SearchResult] = []
+        seen: set[str] = set()
+        for a in soup.select("a.iusc"):
+            try:
+                meta = json.loads(a.get("m") or "{}")
+            except Exception:
+                continue
+            url = meta.get("murl") or meta.get("imgurl")
+            if not url or not is_safe_url(url) or url in seen:
+                continue
+            seen.add(url)
+            title = meta.get("t") or meta.get("desc") or query
+            thumb = meta.get("turl") or meta.get("thumbnail") or url
+            results.append(SearchResult(
+                title=str(title),
+                url=url,
+                snippet=str(meta.get("desc") or ""),
+                provider=self.name,
+                thumbnail=thumb,
+                kind="image",
+            ))
+            if len(results) >= limit:
+                break
+        if not results:
+            for m in re.finditer(r'"murl":"(https?://[^"]+)"', html):
+                url = m.group(1).replace("\\/", "/")
+                if not is_safe_url(url) or url in seen:
+                    continue
+                seen.add(url)
+                results.append(SearchResult(title=query, url=url, snippet="", provider=self.name, thumbnail=url, kind="image"))
+                if len(results) >= limit:
+                    break
+        return results
+
+
 class WikipediaProvider(BaseProvider):
     name = "wikipedia"
 
@@ -322,6 +377,7 @@ def default_providers() -> List[BaseProvider]:
     if settings.searxng_url:
         providers.append(SearXNGProvider())
     providers.append(BingHTMLProvider())
+    providers.append(BingImagesProvider())
     providers.append(DuckDuckGoHTMLProvider())
     providers.append(WikipediaProvider())
     providers.append(WikimediaCommonsProvider())
