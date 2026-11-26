@@ -131,7 +131,7 @@ async def run_search(search_id: str, refresh: bool = False) -> None:
                 for p in pages:
                     p["_query"] = query
                     collected_pages.append(p)
-                    if not has_query_match(query, p.get("title", "") + " " + p["url"] + " " + p.get("text", "")[:3000]):
+                    if not has_query_match(query, p.get("title", "") + " " + p.get("text", "")[:5000]):
                         continue
                     # Extract facts
                     src_id = source_url_to_id.get(p["url"])

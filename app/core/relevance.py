@@ -30,5 +30,14 @@ def has_query_match(query: str, text: str) -> bool:
     return any(tok in low for tok in distinctive_tokens(query))
 
 
+def has_min_query_matches(query: str, text: str, min_matches: int = 2) -> bool:
+    tokens = query_tokens(query)
+    if not tokens:
+        return True
+    low = (text or "").lower()
+    needed = min(min_matches, len(tokens))
+    return sum(1 for tok in tokens if tok in low) >= needed
+
+
 def exact_image_query(query: str) -> str:
     return '"' + " ".join(distinctive_tokens(query)[:3]) + '"'
