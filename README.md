@@ -26,7 +26,8 @@ cd /sdcard/research-ai
 bash run.sh
 ```
 
-Acesse: http://127.0.0.1:8000
+Acesse local: http://127.0.0.1:8000
+Deploy Render: https://research-ai-ntff.onrender.com
 
 ## APIs opcionais
 
