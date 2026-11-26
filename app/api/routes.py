@@ -41,7 +41,24 @@ async def debug_images(q: str = "gazin tower") -> dict:
                 for r in rs
             ],
         })
-    return {"query": q, "results": out}
+
+    import httpx
+    from urllib.parse import quote_plus
+    target = "https://www.bing.com/images/search?q=" + quote_plus(q) + "&form=HDRSC2&mkt=pt-BR&setlang=pt-BR&cc=br"
+    diagnostics = {}
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+            r = await client.get(target)
+            diagnostics["direct"] = {"status": r.status_code, "len": len(r.text), "iusc": r.text.count("iusc"), "murl": r.text.count('"murl"'), "head": r.text[:120]}
+    except Exception as exc:
+        diagnostics["direct"] = {"error": str(exc)}
+    try:
+        async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html", "X-Return-Format": "html"}) as client:
+            r = await client.get("https://r.jina.ai/" + target)
+            diagnostics["jina"] = {"status": r.status_code, "len": len(r.text), "iusc": r.text.count("iusc"), "murl": r.text.count('"murl"'), "head": r.text[:120]}
+    except Exception as exc:
+        diagnostics["jina"] = {"error": str(exc)}
+    return {"query": q, "results": out, "diagnostics": diagnostics}
 
 
 @router.post("/api/search")
