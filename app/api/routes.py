@@ -44,7 +44,7 @@ async def debug_images(q: str = "gazin tower") -> dict:
 
     import httpx
     from urllib.parse import quote_plus
-    target = "https://www.bing.com/images/search?q=" + quote_plus(q) + "&form=HDRSC2&mkt=pt-BR&setlang=pt-BR&cc=br"
+    target = "https://www.bing.com/images/async?q=" + quote_plus(q) + "&first=1&count=35&mmasync=1&mkt=pt-BR&setlang=pt-BR&cc=br"
     diagnostics = {}
     try:
         async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
