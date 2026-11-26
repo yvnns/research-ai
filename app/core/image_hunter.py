@@ -119,9 +119,17 @@ async def hunt_images(
                 "thumbnail": r.thumbnail,
             })
 
+    generic_tokens = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos"}
+    distinctive_tokens = [t for t in re.findall(r"\\w{3,}", query.lower()) if t not in generic_tokens]
     # 2. Extracted images from collected pages
     for page in collected_pages:
+        page_text = (page.get("title", "") + " " + page.get("url", "")).lower()
+        if distinctive_tokens and not any(tok in page_text for tok in distinctive_tokens):
+            continue
         for img in page.get("images", []):
+            img_text = " ".join([img.get("url", ""), img.get("alt", ""), img.get("context", ""), page.get("title", "")]).lower()
+            if distinctive_tokens and not any(tok in img_text for tok in distinctive_tokens):
+                continue
             candidates.append({
                 "url": img["url"],
                 "page_url": page.get("url"),
