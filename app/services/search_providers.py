@@ -210,8 +210,8 @@ class BingImagesProvider(BaseProvider):
         if kind != "image":
             return []
         target = (
-            "https://www.bing.com/images/search?q=" + quote_plus(query)
-            + "&form=HDRSC2&mkt=pt-BR&setlang=pt-BR&cc=br"
+            "https://www.bing.com/images/async?q=" + quote_plus(query)
+            + "&first=1&count=35&mmasync=1&mkt=pt-BR&setlang=pt-BR&cc=br"
         )
         if not is_safe_url(target):
             return []
