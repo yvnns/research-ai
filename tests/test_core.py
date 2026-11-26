@@ -59,10 +59,10 @@ async def test_image_hunter_skips_irrelevant_pages(monkeypatch):
 
     monkeypatch.setattr("app.core.image_hunter.default_providers", lambda: [])
     page = {
-        "url": "https://lista.mercadolivre.com.br/gazin-tower",
-        "title": "Seguranca - Mercado Livre",
-        "text": "Verificacao de seguranca reCAPTCHA",
-        "images": [],
+        "url": "https://www.gazin.com.br/categoria/camas-box",
+        "title": "Camas Box no melhor preco | Compra na Gazin",
+        "text": "Camas Box Gazin colchoes",
+        "images": [{"url": "https://www.gazin.com.br/images/png/blackfriday-theo.png", "alt": "Busto do Theo"}],
     }
     result = await hunt_images("test_skip", "Cama box gazin tower", [], [page], limit=1)
     assert result == []

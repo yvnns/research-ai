@@ -127,7 +127,7 @@ async def hunt_images(
         if not has_query_match(query, page_text):
             continue
         for img in page.get("images", []):
-            img_text = img.get("url", "") + " " + img.get("alt", "") + " " + page.get("title", "")
+            img_text = img.get("url", "") + " " + img.get("alt", "")
             if not has_min_query_matches(query, img_text):
                 continue
             candidates.append({
