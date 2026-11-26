@@ -29,6 +29,13 @@ bash run.sh
 Acesse local: http://127.0.0.1:8000
 Deploy Render: https://research-ai-ntff.onrender.com
 
+## Busca online no Render (proxy opcional)
+O Render (free) bloqueia DuckDuckGo/Openverse. Para restaurar busca completa:
+1. Crie um Cloudflare Worker (free) e cole o codigo de `cloudflare-worker.js`.
+2. Copie a URL do worker (ex.: https://seu-worker.workers.dev).
+3. No Render, adicione env var `SEARCH_PROXY_URL=https://seu-worker.workers.dev`.
+4. Redeploy. O app usara o worker para acessar DuckDuckGo/Openverse.
+
 Observacao importante: o Render (free) e bloqueado por DuckDuckGo/Openverse/Wikimedia, entao a busca online pode retornar 0.
 Para busca completa, rode localmente e exponha com cloudflared:
 
