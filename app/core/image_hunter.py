@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
-import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -21,6 +20,7 @@ from app.core.image_analyzer import (
     score_image,
     classify_image,
 )
+from app.core.relevance import has_query_match
 from app.database import db
 from app.services.search_providers import BaseProvider, default_providers
 from app.services.security import is_safe_url, safe_filename, validate_image_bytes
@@ -109,6 +109,8 @@ async def hunt_images(
             tasks.append(search_one(p, q))
     for res in await asyncio.gather(*tasks):
         for r in res or []:
+            if not has_query_match(query, r.title + " " + r.url + " " + r.snippet):
+                continue
             candidates.append({
                 "url": r.url,
                 "page_url": None,
@@ -119,16 +121,14 @@ async def hunt_images(
                 "thumbnail": r.thumbnail,
             })
 
-    generic_tokens = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos"}
-    distinctive_tokens = [t for t in re.findall(r"\\w{3,}", query.lower()) if t not in generic_tokens]
     # 2. Extracted images from collected pages
     for page in collected_pages:
-        page_text = (page.get("title", "") + " " + page.get("url", "")).lower()
-        if distinctive_tokens and not any(tok in page_text for tok in distinctive_tokens):
+        page_text = page.get("title", "") + " " + page.get("url", "")
+        if not has_query_match(query, page_text):
             continue
         for img in page.get("images", []):
-            img_text = " ".join([img.get("url", ""), img.get("alt", ""), img.get("context", ""), page.get("title", "")]).lower()
-            if distinctive_tokens and not any(tok in img_text for tok in distinctive_tokens):
+            img_text = img.get("url", "") + " " + img.get("alt", "")
+            if not has_query_match(query, img_text):
                 continue
             candidates.append({
                 "url": img["url"],
@@ -167,15 +167,9 @@ async def hunt_images(
     # Debug output removed for production.
 
     # Score and sort
-    generic_tokens = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos"}
-    distinctive_tokens = [t for t in re.findall(r"\\w{3,}", query.lower()) if t not in generic_tokens]
     for c in unique_candidates:
         c["score"] = score_image(query, c["url"], c.get("alt", ""), c.get("page_title", ""), c.get("context", ""))
     unique_candidates.sort(key=lambda x: x.get("score", 0), reverse=True)
-    if distinctive_tokens:
-        filtered = [c for c in unique_candidates if c.get("score", 0) >= 0.15]
-        if filtered:
-            unique_candidates = filtered
 
     storage_dir = IMAGES_DIR / search_id
     storage_dir.mkdir(parents=True, exist_ok=True)
@@ -201,8 +195,13 @@ async def hunt_images(
                 return None
         async with download_sem:
             downloaded = await _download(url)
+            used_url = url
+            if not downloaded and cand.get("thumbnail"):
+                used_url = cand["thumbnail"]
+                downloaded = await _download(used_url)
         if not downloaded:
             return None
+        url = used_url
         data, mime = downloaded
         img = _validate_image(data)
         if img is None:

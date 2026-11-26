@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
+from app.core.relevance import distinctive_tokens
 from app.database import db
 
 
@@ -46,7 +47,7 @@ def _extract_meta(page: Dict, source_id: Optional[str]) -> List[Dict[str, Any]]:
 
 
 def _keyword_facts(text: str, query: str, source_id: Optional[str]) -> List[Dict[str, Any]]:
-    q_tokens = [t for t in re.split(r"\W+", query.lower()) if len(t) > 2]
+    q_tokens = distinctive_tokens(query)
     facts = []
     for sentence in _chunks(text):
         low = sentence.lower()

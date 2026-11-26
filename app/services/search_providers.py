@@ -10,6 +10,7 @@ from urllib.parse import quote_plus, urlencode
 import httpx
 
 from app.config import settings
+from app.core.relevance import has_query_match
 from app.services.security import is_safe_url
 
 
@@ -195,13 +196,8 @@ class BingHTMLProvider(BaseProvider):
             ))
             if len(results) >= limit:
                 break
-        # Prefer results that mention distinctive query terms; drop generic noise when possible.
-        generic = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos", "preco", "preço"}
-        distinctive = [t for t in re.findall(r"\w{3,}", query.lower()) if t not in generic]
-        if distinctive:
-            filtered = [r for r in results if any(tok in (r.title + " " + r.url + " " + r.snippet).lower() for tok in distinctive)]
-            results = filtered
-        return results
+        # Keep only results tied to distinctive query terms; drop generic noise.
+        return [r for r in results if has_query_match(query, r.title + " " + r.url + " " + r.snippet)]
 
 
 class BingImagesProvider(BaseProvider):

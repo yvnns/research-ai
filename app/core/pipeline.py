@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
-import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -13,6 +12,7 @@ from app.config import settings
 from app.core.information_extractor import extract_from_page, extract_pdf_facts
 from app.core.image_hunter import hunt_images
 from app.core.planner import plan
+from app.core.relevance import distinctive_tokens, exact_image_query, has_query_match
 from app.core.summarizer import summarize
 from app.core.verifier import verify_search
 from app.core.web_collector import collect_pages, fetch_page, extract_links_for_deepening
@@ -79,12 +79,10 @@ async def run_search(search_id: str, refresh: bool = False) -> None:
             for res in await asyncio.gather(*tasks, return_exceptions=True):
                 if isinstance(res, Exception) or not res:
                     continue
-                generic_tokens = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos"}
-                distinctive_tokens = [t for t in re.findall(r"\\w{3,}", query.lower()) if t not in generic_tokens]
                 for r in res:
                     if r.url in collected_urls:
                         continue
-                    if distinctive_tokens and not any(tok in (r.title + " " + r.url + " " + r.snippet).lower() for tok in distinctive_tokens):
+                    if not has_query_match(q, r.title + " " + r.url + " " + r.snippet):
                         continue
                     collected_urls.add(r.url)
                     # insert source
@@ -133,6 +131,8 @@ async def run_search(search_id: str, refresh: bool = False) -> None:
                 for p in pages:
                     p["_query"] = query
                     collected_pages.append(p)
+                    if not has_query_match(query, p.get("title", "") + " " + p["url"] + " " + p.get("text", "")[:3000]):
+                        continue
                     # Extract facts
                     src_id = source_url_to_id.get(p["url"])
                     await extract_from_page(search_id, p, src_id)
@@ -177,7 +177,7 @@ async def run_search(search_id: str, refresh: bool = False) -> None:
         images = await hunt_images(
             search_id=search_id,
             query=query,
-            image_queries=research_plan.get("image_queries", []),
+            image_queries=[exact_image_query(query)] + [q for q in research_plan.get("image_queries", []) if q != query],
             collected_pages=collected_pages,
             limit=max_images,
         )
