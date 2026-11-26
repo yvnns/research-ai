@@ -39,5 +39,23 @@ def has_min_query_matches(query: str, text: str, min_matches: int = 2) -> bool:
     return sum(1 for tok in tokens if tok in low) >= needed
 
 
+_PRODUCT_IMAGE_TOKENS = {
+    "cama", "colchao", "colchão", "box", "sofá", "sofa", "mesa", "cadeira",
+    "geladeira", "fogao", "fogão", "maquina", "máquina", "armario", "armário",
+    "celular", "notebook", "iphone", "tv", "produto", "modelo",
+}
+
+
+def has_useful_image_match(query: str, text: str) -> bool:
+    tokens = query_tokens(query)
+    if not tokens:
+        return True
+    low = (text or "").lower()
+    matches = sum(1 for tok in tokens if tok in low)
+    if matches >= 2:
+        return True
+    return any(tok in _PRODUCT_IMAGE_TOKENS and tok in low for tok in tokens)
+
+
 def exact_image_query(query: str) -> str:
     return '"' + " ".join(distinctive_tokens(query)[:3]) + '"'

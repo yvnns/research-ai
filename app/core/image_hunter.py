@@ -20,7 +20,7 @@ from app.core.image_analyzer import (
     score_image,
     classify_image,
 )
-from app.core.relevance import has_min_query_matches, has_query_match
+from app.core.relevance import has_query_match, has_useful_image_match
 from app.database import db
 from app.services.search_providers import BaseProvider, default_providers
 from app.services.security import is_safe_url, safe_filename, validate_image_bytes
@@ -109,7 +109,7 @@ async def hunt_images(
             tasks.append(search_one(p, q))
     for res in await asyncio.gather(*tasks):
         for r in res or []:
-            if not has_min_query_matches(query, r.title + " " + r.url + " " + r.snippet):
+            if not has_useful_image_match(query, r.title + " " + r.url + " " + r.snippet):
                 continue
             candidates.append({
                 "url": r.url,
@@ -128,7 +128,7 @@ async def hunt_images(
             continue
         for img in page.get("images", []):
             img_text = img.get("url", "") + " " + img.get("alt", "")
-            if not has_min_query_matches(query, img_text):
+            if not has_useful_image_match(query, img_text):
                 continue
             candidates.append({
                 "url": img["url"],

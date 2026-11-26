@@ -6,7 +6,7 @@ from PIL import Image
 
 from app.core.image_analyzer import compute_phash, hamming_distance, is_near_duplicate, score_image
 from app.core.planner import plan
-from app.core.relevance import exact_image_query, distinctive_tokens
+from app.core.relevance import exact_image_query, distinctive_tokens, has_useful_image_match
 from app.services.security import is_safe_url, validate_image_bytes
 
 
@@ -52,6 +52,8 @@ def test_score_image():
 def test_relevance_helpers():
     assert distinctive_tokens("Cama box gazin tower") == ["gazin", "tower"]
     assert exact_image_query("Cama box gazin tower") == '"gazin tower"'
+    assert has_useful_image_match("Cama box gazin tower", "Cama de casal 140x190") is True
+    assert has_useful_image_match("Cama box gazin tower", "Gazin blackfriday theo") is False
 
 @pytest.mark.asyncio
 async def test_image_hunter_skips_irrelevant_pages(monkeypatch):
