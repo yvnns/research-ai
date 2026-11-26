@@ -7,6 +7,7 @@ from PIL import Image
 from app.core.image_analyzer import compute_phash, hamming_distance, is_near_duplicate, score_image
 from app.core.planner import plan
 from app.core.relevance import exact_image_query, distinctive_tokens, has_useful_image_match
+from app.core.information_extractor import _extract_tables
 from app.services.security import is_safe_url, validate_image_bytes
 
 
@@ -54,6 +55,22 @@ def test_relevance_helpers():
     assert exact_image_query("Cama box gazin tower") == '"gazin tower"'
     assert has_useful_image_match("Cama box gazin tower", "Cama de casal 140x190") is True
     assert has_useful_image_match("Cama box gazin tower", "Gazin blackfriday theo") is False
+
+
+def test_extract_tables_filters_unrelated_rows():
+    page = {
+        "_query": "Cama box gazin tower",
+        "tables": [
+            [
+                ["Marca", "Mallory Turbo Fresh"],
+                ["Marca", "Gazin Tower"],
+            ]
+        ],
+    }
+    facts = _extract_tables(page, None)
+    assert len(facts) == 1
+    assert facts[0]["value"] == "Gazin Tower"
+
 
 @pytest.mark.asyncio
 async def test_image_hunter_skips_irrelevant_pages(monkeypatch):

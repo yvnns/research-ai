@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Optional
 
-from app.core.relevance import distinctive_tokens
+from app.core.relevance import distinctive_tokens, has_query_match
 from app.database import db
 
 
@@ -24,13 +24,17 @@ def _chunks(text: str, max_len: int = 280) -> List[str]:
 
 def _extract_tables(page: Dict, source_id: Optional[str]) -> List[Dict[str, Any]]:
     facts = []
+    q = page.get("_query") or ""
     for table in page.get("tables", []):
         for row in table:
             if len(row) >= 2:
                 key = row[0].strip()
                 value = " | ".join(c.strip() for c in row[1:] if c.strip())
-                if key and value and len(key) < 80:
-                    facts.append({"key": key, "value": value, "source_id": source_id, "confidence": "secondary"})
+                if not key or not value or len(key) >= 80:
+                    continue
+                if q and not has_query_match(q, key + " " + value):
+                    continue
+                facts.append({"key": key, "value": value, "source_id": source_id, "confidence": "secondary"})
     return facts
 
 

@@ -17,7 +17,6 @@ from app.config import settings, IMAGES_DIR
 from app.core.pipeline import run_search
 from app.database import db
 from app.models.schemas import SearchRequest, SearchResponse, SearchStatus
-from app.services.search_providers import default_providers
 from app.services.security import is_safe_url
 
 router = APIRouter()
@@ -26,57 +25,6 @@ router = APIRouter()
 @router.get("/health")
 async def health() -> dict:
     return {"status": "ok", "app": settings.app_name}
-
-@router.get("/api/debug/images")
-async def debug_images(q: str = "gazin tower") -> dict:
-    providers = [p for p in default_providers() if p.name in ("bing_images", "duckduckgo_images")]
-    out = []
-    for p in providers:
-        rs = await p.search(q, kind="image", limit=10)
-        out.append({
-            "provider": p.name,
-            "count": len(rs),
-            "results": [
-                {"title": r.title, "url": r.url, "snippet": r.snippet, "thumbnail": r.thumbnail}
-                for r in rs
-            ],
-        })
-
-    import httpx
-    from urllib.parse import quote_plus
-    target = "https://www.bing.com/images/async?q=" + quote_plus(q) + "&first=1&count=35&mmasync=1&mkt=pt-BR&setlang=pt-BR&cc=br"
-    diagnostics = {}
-    try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
-            r = await client.get(target)
-            diagnostics["direct"] = {
-                "status": r.status_code,
-                "len": len(r.text),
-                "iusc": r.text.count("iusc"),
-                "murl_raw": r.text.count("murl"),
-                "imgurl": r.text.count("imgurl"),
-                "mediaurl": r.text.count("mediaurl"),
-                "pic": r.text.count("pic"),
-                "head": r.text[:120],
-            }
-    except Exception as exc:
-        diagnostics["direct"] = {"error": str(exc)}
-    try:
-        async with httpx.AsyncClient(timeout=30, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html", "X-Return-Format": "html"}) as client:
-            r = await client.get("https://r.jina.ai/" + target)
-            diagnostics["jina"] = {
-                "status": r.status_code,
-                "len": len(r.text),
-                "iusc": r.text.count("iusc"),
-                "murl_raw": r.text.count("murl"),
-                "imgurl": r.text.count("imgurl"),
-                "mediaurl": r.text.count("mediaurl"),
-                "pic": r.text.count("pic"),
-                "head": r.text[:120],
-            }
-    except Exception as exc:
-        diagnostics["jina"] = {"error": str(exc)}
-    return {"query": q, "results": out, "diagnostics": diagnostics}
 
 
 @router.post("/api/search")
