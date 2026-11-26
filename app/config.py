@@ -60,8 +60,8 @@ class Settings:
 
     # AI provider (OpenAI-compatible)
     ai_api_key: str = os.getenv("AI_API_KEY", "").strip()
-    ai_base_url: str = os.getenv("AI_BASE_URL", "https://api.openai.com/v1").strip().rstrip("/")
-    ai_model: str = os.getenv("AI_MODEL", "").strip()
+    ai_base_url: str = os.getenv("AI_BASE_URL", "https://opencode.ai/zen/go/v1").strip().rstrip("/")
+    ai_model: str = os.getenv("AI_MODEL", "beam-free").strip()
     ai_vision_model: str = os.getenv("AI_VISION_MODEL", "").strip()
     ai_timeout: int = _int("AI_TIMEOUT", 60)
     ai_max_tokens: int = _int("AI_MAX_TOKENS", 1200)
