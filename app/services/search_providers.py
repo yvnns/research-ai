@@ -82,12 +82,18 @@ class DuckDuckGoHTMLProvider(BaseProvider):
     async def search(self, query: str, kind: str = "text", limit: int = 10) -> List[SearchResult]:
         if kind == "image":
             return []
-        url = "https://html.duckduckgo.com/html/?q=" + quote_plus(query)
-        if not is_safe_url(url):
+        target = "https://html.duckduckgo.com/html/?q=" + quote_plus(query)
+        if not is_safe_url(target):
             return []
+        fetch_url = target
+        if settings.search_proxy_url:
+            fetch_url = settings.search_proxy_url + "?url=" + quote_plus(target)
         try:
             async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
-                resp = await client.post("https://html.duckduckgo.com/html/", data={"q": query})
+                if settings.search_proxy_url:
+                    resp = await client.get(fetch_url)
+                else:
+                    resp = await client.post("https://html.duckduckgo.com/html/", data={"q": query})
                 resp.raise_for_status()
                 html = resp.text
         except Exception:
@@ -285,9 +291,12 @@ class OpenverseProvider(BaseProvider):
         url = "https://api.openverse.org/v1/images/?q=" + quote_plus(query) + f"&page_size={limit}"
         if not is_safe_url(url):
             return []
+        fetch_url = url
+        if settings.search_proxy_url:
+            fetch_url = settings.search_proxy_url + "?url=" + quote_plus(url)
         try:
             async with httpx.AsyncClient(timeout=settings.request_timeout, headers={"User-Agent": "ResearchAI/1.0 (contact@example.com)"}) as client:
-                resp = await client.get(url)
+                resp = await client.get(fetch_url)
                 resp.raise_for_status()
                 data = resp.json()
         except Exception:

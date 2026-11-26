@@ -57,6 +57,7 @@ class Settings:
     # Providers
     searxng_url: str = os.getenv("SEARXNG_URL", "").strip()
     search_provider: str = os.getenv("SEARCH_PROVIDER", "auto").strip().lower()
+    search_proxy_url: str = os.getenv("SEARCH_PROXY_URL", "").strip().rstrip("/")
 
     # AI provider (OpenAI-compatible)
     ai_api_key: str = os.getenv("AI_API_KEY", "").strip()
