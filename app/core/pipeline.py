@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import json
+import re
 import time
 from typing import Any, Dict, List, Optional
 
@@ -78,8 +79,12 @@ async def run_search(search_id: str, refresh: bool = False) -> None:
             for res in await asyncio.gather(*tasks, return_exceptions=True):
                 if isinstance(res, Exception) or not res:
                     continue
+                generic_tokens = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos"}
+                distinctive_tokens = [t for t in re.findall(r"\\w{3,}", query.lower()) if t not in generic_tokens]
                 for r in res:
                     if r.url in collected_urls:
+                        continue
+                    if distinctive_tokens and not any(tok in (r.title + " " + r.url + " " + r.snippet).lower() for tok in distinctive_tokens):
                         continue
                     collected_urls.add(r.url)
                     # insert source

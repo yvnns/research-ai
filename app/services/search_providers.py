@@ -200,8 +200,7 @@ class BingHTMLProvider(BaseProvider):
         distinctive = [t for t in re.findall(r"\w{3,}", query.lower()) if t not in generic]
         if distinctive:
             filtered = [r for r in results if any(tok in (r.title + " " + r.url + " " + r.snippet).lower() for tok in distinctive)]
-            if filtered:
-                results = filtered
+            results = filtered
         return results
 
 

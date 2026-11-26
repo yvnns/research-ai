@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import io
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 from urllib.parse import urlparse
@@ -158,9 +159,15 @@ async def hunt_images(
     # Debug output removed for production.
 
     # Score and sort
+    generic_tokens = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos"}
+    distinctive_tokens = [t for t in re.findall(r"\\w{3,}", query.lower()) if t not in generic_tokens]
     for c in unique_candidates:
         c["score"] = score_image(query, c["url"], c.get("alt", ""), c.get("page_title", ""), c.get("context", ""))
     unique_candidates.sort(key=lambda x: x.get("score", 0), reverse=True)
+    if distinctive_tokens:
+        filtered = [c for c in unique_candidates if c.get("score", 0) >= 0.15]
+        if filtered:
+            unique_candidates = filtered
 
     storage_dir = IMAGES_DIR / search_id
     storage_dir.mkdir(parents=True, exist_ok=True)
