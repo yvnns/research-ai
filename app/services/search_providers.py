@@ -211,7 +211,10 @@ class BingImagesProvider(BaseProvider):
             return []
         try:
             async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
-                resp = await client.get("https://www.bing.com/images/search", params={"q": query, "form": "HDRSC2"})
+                resp = await client.get(
+                    "https://www.bing.com/images/search",
+                    params={"q": query, "form": "HDRSC2", "mkt": "pt-BR", "setlang": "pt-BR", "cc": "br"},
+                )
                 resp.raise_for_status()
                 html = resp.text
         except Exception:
