@@ -122,6 +122,64 @@ class DuckDuckGoHTMLProvider(BaseProvider):
         return results
 
 
+class BingHTMLProvider(BaseProvider):
+    name = "bing_html"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "text", limit: int = 10) -> List[SearchResult]:
+        if kind == "image":
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+                resp = await client.get("https://www.bing.com/search", params={"q": query, "count": limit})
+                resp.raise_for_status()
+                html = resp.text
+        except Exception:
+            return []
+        from bs4 import BeautifulSoup
+        from urllib.parse import parse_qs, urlparse, unquote
+        import base64
+
+        def resolve_bing(url: str) -> str:
+            try:
+                p = urlparse(url)
+                if "bing.com" in (p.netloc or "").lower() and p.path.startswith("/ck/a"):
+                    qs = parse_qs(p.query)
+                    tok = (qs.get("u") or [""])[0]
+                    if tok.startswith("a1"):
+                        tok = tok[2:]
+                    tok += "=" * ((4 - len(tok) % 4) % 4)
+                    dec = base64.urlsafe_b64decode(tok).decode("utf-8", "ignore")
+                    if dec.startswith("http"):
+                        return dec
+            except Exception:
+                pass
+            return url
+
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        for li in soup.select("li.b_algo"):
+            a = li.select_one("h2 a")
+            if not a or not a.get("href"):
+                continue
+            href = resolve_bing(a["href"])
+            if not is_safe_url(href):
+                continue
+            snippet_el = li.select_one("p")
+            results.append(SearchResult(
+                title=a.get_text(" ", strip=True),
+                url=href,
+                snippet=snippet_el.get_text(" ", strip=True) if snippet_el else "",
+                provider=self.name,
+                kind="text",
+            ))
+            if len(results) >= limit:
+                break
+        return results
+
+
 class WikipediaProvider(BaseProvider):
     name = "wikipedia"
 
@@ -228,7 +286,7 @@ class OpenverseProvider(BaseProvider):
         if not is_safe_url(url):
             return []
         try:
-            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, headers={"User-Agent": "ResearchAI/1.0 (contact@example.com)"}) as client:
                 resp = await client.get(url)
                 resp.raise_for_status()
                 data = resp.json()
@@ -254,6 +312,7 @@ def default_providers() -> List[BaseProvider]:
     providers: List[BaseProvider] = []
     if settings.searxng_url:
         providers.append(SearXNGProvider())
+    providers.append(BingHTMLProvider())
     providers.append(DuckDuckGoHTMLProvider())
     providers.append(WikipediaProvider())
     providers.append(WikimediaCommonsProvider())
