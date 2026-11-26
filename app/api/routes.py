@@ -29,7 +29,7 @@ async def health() -> dict:
 
 @router.get("/api/debug/images")
 async def debug_images(q: str = "gazin tower") -> dict:
-    providers = [p for p in default_providers() if p.name == "bing_images"]
+    providers = [p for p in default_providers() if p.name in ("bing_images", "duckduckgo_images")]
     out = []
     for p in providers:
         rs = await p.search(q, kind="image", limit=10)

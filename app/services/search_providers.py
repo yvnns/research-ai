@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, asdict
 from typing import List, Optional
@@ -276,6 +277,77 @@ class BingImagesProvider(BaseProvider):
         return results
 
 
+class DuckDuckGoImagesProvider(BaseProvider):
+    name = "duckduckgo_images"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "image", limit: int = 20) -> List[SearchResult]:
+        if kind != "image":
+            return []
+        page_url = "https://duckduckgo.com/?q=" + quote_plus(query) + "&iax=images&ia=images"
+        if not is_safe_url(page_url):
+            return []
+        vqd = ""
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+                resp = await client.get(page_url)
+                resp.raise_for_status()
+                m = re.search(r"vqd=([0-9-]+)", resp.text)
+                if m:
+                    vqd = m.group(1)
+        except Exception:
+            vqd = ""
+        if not vqd:
+            try:
+                async with httpx.AsyncClient(
+                    timeout=settings.request_timeout,
+                    follow_redirects=True,
+                    headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html", "X-Return-Format": "html"},
+                ) as client:
+                    resp = await client.get("https://r.jina.ai/" + page_url)
+                    resp.raise_for_status()
+                    m = re.search(r"vqd=([0-9-]+)", resp.text)
+                    if m:
+                        vqd = m.group(1)
+            except Exception:
+                vqd = ""
+        if not vqd:
+            return []
+        api_url = (
+            "https://duckduckgo.com/i.js?l=pt-br&o=json&q=" + quote_plus(query)
+            + "&vqd=" + vqd + "&f=,,,size:Medium"
+        )
+        if not is_safe_url(api_url):
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://duckduckgo.com/"}) as client:
+                resp = await client.get(api_url)
+                resp.raise_for_status()
+                data = json.loads(resp.text)
+        except Exception:
+            return []
+        results: List[SearchResult] = []
+        seen: set[str] = set()
+        for item in data.get("results", []):
+            url = item.get("image")
+            if not url or not is_safe_url(url) or url in seen:
+                continue
+            seen.add(url)
+            results.append(SearchResult(
+                title=str(item.get("title") or query),
+                url=url,
+                snippet=str(item.get("source") or ""),
+                provider=self.name,
+                thumbnail=item.get("thumbnail") or url,
+                kind="image",
+            ))
+            if len(results) >= limit:
+                break
+        return results
+
+
 class WikipediaProvider(BaseProvider):
     name = "wikipedia"
 
@@ -413,6 +485,7 @@ def default_providers() -> List[BaseProvider]:
         providers.append(SearXNGProvider())
     providers.append(BingHTMLProvider())
     providers.append(BingImagesProvider())
+    providers.append(DuckDuckGoImagesProvider())
     providers.append(DuckDuckGoHTMLProvider())
     providers.append(WikipediaProvider())
     providers.append(WikimediaCommonsProvider())
