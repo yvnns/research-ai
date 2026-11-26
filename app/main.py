@@ -30,6 +30,16 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
+@app.get("/api/debug/fetch", include_in_schema=False)
+async def debug_fetch(url: str):
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as c:
+            r = await c.get(url)
+            return {"status": r.status_code, "len": len(r.text)}
+    except Exception as e:  # noqa: BLE001
+        return {"error": type(e).__name__, "message": str(e)}
+
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> str:
     path = TEMPLATES_DIR / "index.html"
