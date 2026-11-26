@@ -6,6 +6,7 @@ from PIL import Image
 
 from app.core.image_analyzer import compute_phash, hamming_distance, is_near_duplicate, score_image
 from app.core.planner import plan
+from app.core.relevance import exact_image_query, distinctive_tokens
 from app.services.security import is_safe_url, validate_image_bytes
 
 
@@ -48,3 +49,20 @@ def test_score_image():
     s = score_image("ortobom spring pocket", "https://example.com/ortobom-spring-pocket.jpg", "colchão casal", "Ortobom", "")
     assert 0 <= s <= 1
     assert s > 0.3
+def test_relevance_helpers():
+    assert distinctive_tokens("Cama box gazin tower") == ["gazin", "tower"]
+    assert exact_image_query("Cama box gazin tower") == '"gazin tower"'
+
+@pytest.mark.asyncio
+async def test_image_hunter_skips_irrelevant_pages(monkeypatch):
+    from app.core.image_hunter import hunt_images
+
+    monkeypatch.setattr("app.core.image_hunter.default_providers", lambda: [])
+    page = {
+        "url": "https://lista.mercadolivre.com.br/gazin-tower",
+        "title": "Seguranca - Mercado Livre",
+        "text": "Verificacao de seguranca reCAPTCHA",
+        "images": [],
+    }
+    result = await hunt_images("test_skip", "Cama box gazin tower", [], [page], limit=1)
+    assert result == []

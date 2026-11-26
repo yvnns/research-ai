@@ -20,7 +20,7 @@ from app.core.image_analyzer import (
     score_image,
     classify_image,
 )
-from app.core.relevance import has_min_query_matches
+from app.core.relevance import has_min_query_matches, has_query_match
 from app.database import db
 from app.services.search_providers import BaseProvider, default_providers
 from app.services.security import is_safe_url, safe_filename, validate_image_bytes
