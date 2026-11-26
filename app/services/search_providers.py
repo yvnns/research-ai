@@ -85,6 +85,7 @@ class DuckDuckGoHTMLProvider(BaseProvider):
         target = "https://html.duckduckgo.com/html/?q=" + quote_plus(query)
         if not is_safe_url(target):
             return []
+        html = ""
         fetch_url = target
         if settings.search_proxy_url:
             fetch_url = settings.search_proxy_url + "?url=" + quote_plus(target)
@@ -97,6 +98,17 @@ class DuckDuckGoHTMLProvider(BaseProvider):
                 resp.raise_for_status()
                 html = resp.text
         except Exception:
+            html = ""
+        if not html or ".result" not in html:
+            jina_url = "https://r.jina.ai/https://html.duckduckgo.com/html/?q=" + quote_plus(query)
+            try:
+                async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0", "Accept": "text/html", "X-Return-Format": "html"}) as client:
+                    resp = await client.get(jina_url)
+                    resp.raise_for_status()
+                    html = resp.text
+            except Exception:
+                html = ""
+        if not html:
             return []
         from bs4 import BeautifulSoup
 
@@ -183,6 +195,13 @@ class BingHTMLProvider(BaseProvider):
             ))
             if len(results) >= limit:
                 break
+        # Prefer results that mention distinctive query terms; drop generic noise when possible.
+        generic = {"cama", "box", "colchao", "colchão", "sofa", "sofá", "mesa", "cadeira", "produto", "modelos", "preco", "preço"}
+        distinctive = [t for t in re.findall(r"\w{3,}", query.lower()) if t not in generic]
+        if distinctive:
+            filtered = [r for r in results if any(tok in (r.title + " " + r.url + " " + r.snippet).lower() for tok in distinctive)]
+            if filtered:
+                results = filtered
         return results
 
 

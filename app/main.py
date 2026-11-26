@@ -1,4 +1,4 @@
-"""FastAPI application entrypoint."""
+﻿"""FastAPI application entrypoint."""
 
 from __future__ import annotations
 
@@ -30,21 +30,9 @@ if STATIC_DIR.exists():
     app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
-@app.get("/api/debug/fetch", include_in_schema=False)
-async def debug_fetch(url: str):
-    import httpx
-    try:
-        async with httpx.AsyncClient(timeout=15, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as c:
-            r = await c.get(url)
-            return {"status": r.status_code, "len": len(r.text)}
-    except Exception as e:  # noqa: BLE001
-        return {"error": type(e).__name__, "message": str(e)}
-
-
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request) -> str:
     path = TEMPLATES_DIR / "index.html"
     if path.exists():
         return path.read_text(encoding="utf-8")
     return "<h1>Research AI</h1>"
-", "path":"D:\\Midset\\research-ai\\app\\main.py"}
