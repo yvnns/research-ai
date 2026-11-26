@@ -29,6 +29,16 @@ bash run.sh
 Acesse local: http://127.0.0.1:8000
 Deploy Render: https://research-ai-ntff.onrender.com
 
+Observacao importante: o Render (free) e bloqueado por DuckDuckGo/Openverse/Wikimedia, entao a busca online pode retornar 0.
+Para busca completa, rode localmente e exponha com cloudflared:
+
+```bat
+run.bat
+"C:\Program Files (x86)\cloudflared\cloudflared.exe" tunnel --url http://127.0.0.1:8000
+```
+
+Use a URL https://....trycloudflare.com gerada.
+
 ## APIs opcionais
 
 - `SEARXNG_URL`: instância SearXNG.
