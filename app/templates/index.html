@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Research AI</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Research AI</div>
+    <div class="subtitle">Pesquisa inteligente multimodal</div>
+  </header>
+
+  <main class="container">
+    <section class="search-panel">
+      <form id="searchForm">
+        <input id="queryInput" type="text" placeholder="Digite o assunto da pesquisa..." required />
+        <label class="deep-toggle"><input type="checkbox" id="deepToggle" checked /> Pesquisa profunda</label>
+        <button type="submit" id="searchBtn">Pesquisar</button>
+      </form>
+      <div class="history" id="history"></div>
+    </section>
+
+    <section id="statusPanel" class="status-panel hidden">
+      <div class="status-row">
+        <span id="stageText">Planejando</span>
+        <span id="progressText">0%</span>
+      </div>
+      <div class="progress-bar"><div id="progressBar"></div></div>
+      <div id="statusMessage" class="status-message"></div>
+    </section>
+
+    <section id="results" class="results hidden">
+      <div class="section">
+        <h2>Resumo</h2>
+        <div id="summary" class="summary"></div>
+        <button id="copySummary" class="small-btn">Copiar resumo</button>
+      </div>
+
+      <div class="section">
+        <h2>Galeria de imagens</h2>
+        <div class="gallery-actions">
+          <button id="downloadAll" class="small-btn">Baixar todas (ZIP)</button>
+        </div>
+        <div id="gallery" class="gallery"></div>
+      </div>
+
+      <div class="section">
+        <h2>Informações principais</h2>
+        <div id="facts" class="facts"></div>
+      </div>
+
+      <div class="section">
+        <h2>Confiabilidade</h2>
+        <pre id="reliability" class="reliability"></pre>
+      </div>
+
+      <details class="section">
+        <summary>Fontes (detalhes)</summary>
+        <ul id="sources" class="sources"></ul>
+      </details>
+    </section>
+  </main>
+
+  <div id="modal" class="modal hidden">
+    <img id="modalImg" src="" alt="" />
+    <button id="modalClose" class="modal-close">×</button>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

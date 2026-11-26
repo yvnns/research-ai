@@ -1,0 +1,261 @@
+"""Pluggable search providers."""
+
+from __future__ import annotations
+
+import re
+from dataclasses import dataclass, asdict
+from typing import List, Optional
+from urllib.parse import quote_plus, urlencode
+
+import httpx
+
+from app.config import settings
+from app.services.security import is_safe_url
+
+
+@dataclass
+class SearchResult:
+    title: str
+    url: str
+    snippet: str = ""
+    provider: str = ""
+    thumbnail: Optional[str] = None
+    kind: str = "text"
+
+    def to_dict(self) -> dict:
+        return asdict(self)
+
+
+class BaseProvider:
+    name: str = "base"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "text", limit: int = 10) -> List[SearchResult]:
+        raise NotImplementedError
+
+
+class SearXNGProvider(BaseProvider):
+    name = "searxng"
+
+    def available(self) -> bool:
+        return bool(settings.searxng_url)
+
+    async def search(self, query: str, kind: str = "text", limit: int = 10) -> List[SearchResult]:
+        if not self.available():
+            return []
+        category = "images" if kind == "image" else "general"
+        params = {"q": query, "format": "json", "categories": category, "language": "auto"}
+        url = settings.searxng_url.rstrip("/") + "/search?" + urlencode(params)
+        if not is_safe_url(url):
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            return []
+        results = []
+        for item in data.get("results", [])[:limit]:
+            item_url = item.get("url")
+            if not item_url or not is_safe_url(item_url):
+                continue
+            results.append(SearchResult(
+                title=item.get("title") or item_url,
+                url=item_url,
+                snippet=item.get("content") or "",
+                provider=self.name,
+                thumbnail=item.get("thumbnail") or item.get("img_src"),
+                kind=kind,
+            ))
+        return results
+
+
+class DuckDuckGoHTMLProvider(BaseProvider):
+    name = "duckduckgo_html"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "text", limit: int = 10) -> List[SearchResult]:
+        if kind == "image":
+            return []
+        url = "https://html.duckduckgo.com/html/?q=" + quote_plus(query)
+        if not is_safe_url(url):
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout, follow_redirects=True, headers={"User-Agent": "Mozilla/5.0"}) as client:
+                resp = await client.post("https://html.duckduckgo.com/html/", data={"q": query})
+                resp.raise_for_status()
+                html = resp.text
+        except Exception:
+            return []
+        from bs4 import BeautifulSoup
+
+        soup = BeautifulSoup(html, "lxml")
+        results = []
+        for result in soup.select(".result"):
+            a = result.select_one(".result__a")
+            if not a or not a.get("href"):
+                continue
+            href = a["href"]
+            # DuckDuckGo redirect wrapper
+            m = re.search(r"uddg=([^&]+)", href)
+            if m:
+                from urllib.parse import unquote
+
+                href = unquote(m.group(1))
+            if not is_safe_url(href):
+                continue
+            snippet_el = result.select_one(".result__snippet")
+            results.append(SearchResult(
+                title=a.get_text(" ", strip=True),
+                url=href,
+                snippet=snippet_el.get_text(" ", strip=True) if snippet_el else "",
+                provider=self.name,
+                kind="text",
+            ))
+            if len(results) >= limit:
+                break
+        return results
+
+
+class WikipediaProvider(BaseProvider):
+    name = "wikipedia"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "text", limit: int = 8) -> List[SearchResult]:
+        if kind == "image":
+            return []
+        results: List[SearchResult] = []
+        for lang in ("pt", "en"):
+            url = f"https://{lang}.wikipedia.org/w/api.php?action=opensearch&search={quote_plus(query)}&limit={limit}&namespace=0&format=json"
+            if not is_safe_url(url):
+                continue
+            try:
+                async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+                    resp = await client.get(url)
+                    resp.raise_for_status()
+                    data = resp.json()
+            except Exception:
+                continue
+            if not isinstance(data, list) or len(data) < 4:
+                continue
+            titles = data[1]
+            descriptions = data[2]
+            urls = data[3]
+            for t, d, u in zip(titles, descriptions, urls):
+                if not is_safe_url(u):
+                    continue
+                results.append(SearchResult(title=t, url=u, snippet=d or "", provider=f"wikipedia_{lang}", kind="text"))
+        # dedup by url
+        seen = set()
+        unique = []
+        for r in results:
+            if r.url in seen:
+                continue
+            seen.add(r.url)
+            unique.append(r)
+        return unique[:limit]
+
+
+class WikimediaCommonsProvider(BaseProvider):
+    name = "wikimedia_commons"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "image", limit: int = 20) -> List[SearchResult]:
+        if kind != "image":
+            return []
+        params = {
+            "action": "query",
+            "format": "json",
+            "generator": "search",
+            "gsrsearch": query,
+            "gsrnamespace": "6",
+            "gsrlimit": str(limit),
+            "prop": "imageinfo",
+            "iiprop": "url|size|mime|extmetadata",
+        }
+        url = "https://commons.wikimedia.org/w/api.php?" + urlencode(params)
+        if not is_safe_url(url):
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            return []
+        pages = (data.get("query") or {}).get("pages") or {}
+        results = []
+        for page in pages.values():
+            info = (page.get("imageinfo") or [{}])[0]
+            img_url = info.get("url")
+            if not img_url or not is_safe_url(img_url):
+                continue
+            title = page.get("title", "").replace("File:", "")
+            ext = info.get("extmetadata") or {}
+            desc = (ext.get("ImageDescription") or {}).get("value", "")
+            # strip html
+            desc = re.sub(r"<[^>]+>", " ", desc)
+            results.append(SearchResult(
+                title=title,
+                url=img_url,
+                snippet=desc[:300],
+                provider=self.name,
+                thumbnail=info.get("thumburl") or img_url,
+                kind="image",
+            ))
+        return results[:limit]
+
+
+class OpenverseProvider(BaseProvider):
+    name = "openverse"
+
+    def available(self) -> bool:
+        return True
+
+    async def search(self, query: str, kind: str = "image", limit: int = 20) -> List[SearchResult]:
+        if kind != "image":
+            return []
+        url = "https://api.openverse.org/v1/images/?q=" + quote_plus(query) + f"&page_size={limit}"
+        if not is_safe_url(url):
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=settings.request_timeout) as client:
+                resp = await client.get(url)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception:
+            return []
+        results = []
+        for item in data.get("results", [])[:limit]:
+            img_url = item.get("url")
+            if not img_url or not is_safe_url(img_url):
+                continue
+            results.append(SearchResult(
+                title=item.get("title") or img_url,
+                url=img_url,
+                snippet=item.get("description") or "",
+                provider=self.name,
+                thumbnail=item.get("thumbnail") or img_url,
+                kind="image",
+            ))
+        return results
+
+
+def default_providers() -> List[BaseProvider]:
+    providers: List[BaseProvider] = []
+    if settings.searxng_url:
+        providers.append(SearXNGProvider())
+    providers.append(DuckDuckGoHTMLProvider())
+    providers.append(WikipediaProvider())
+    providers.append(WikimediaCommonsProvider())
+    providers.append(OpenverseProvider())
+    return providers
